@@ -8,20 +8,52 @@ from xlwt import *
 #from datetime import datetime, date, time
 #import json
 
+
 class Star:
 	# 48 potential fields.
 	#self.attrib = {'jack': 4098, 'sape': 4139}
-	def __init__(self):
-		self.attributes = {}
+	def __init__(self, index):
+		self.att = {'numberid': index}
+		self.headings = ['numberid', 'name', 'userid', 'profileurl', 'realname', 'vine', 'topreviewer', 'email', 'halloffame',
+		'2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', 'votes', 
+		'helpful', 'ratio', 'location', 'tags', 'info', 'firstrev', 'totalrev', 'reviewstar', 'reviewtitle'
+		'reviewdate', 'reviewyear', 'dayssincelast', 'dayssincefirst', 'votes', 'helpful', 'content', 'characters',
+		'product', 'producturl', 'category1', 'category2', 'category3', 'productfirst', 'daysfirst', 'avreview']
 		
 	def add(self, name, value):
-		self.attributes[name] = value
+		self.att[name] = value
+		
+	def getKeys(self):
+		return self.headings
 		
 	def toStr(self):
-		for key in self.attributes.keys():
-			print key + " = " + self.attributes[key]
+		if (DEBUG):
+			for key in self.att.keys():
+				print key + " = " + str(self.att[key])
+		else:
+			for key in self.att.keys():
+				print key + " = " + self.att[key]
 			
-	def writeSS(self, sheet):
+	def writeSS(self, sheet, row):
+		style = XFStyle()
+		fnt = Font()
+		fnt.name = 'Arial'
+		style.font = fnt
+		style_link = XFStyle()
+		fnt_link = Font()
+		fnt_link.name = 'Arial'
+		fnt_link.colour_index = 0x4
+		style_link.font = fnt_link
+		
+		index = 0
+		for heading in self.headings:
+			try:
+				sheet.write(row, index, self.att[heading], style)
+			except KeyError:
+				print "missing " + heading
+			index += 1
+		#ws.write(row, 2, changes, style) # this for standard text to a cell
+		#ws.write(row, 2, Formula('HYPERLINK("' + changes + '";"' + changes + '")'), style_link)
 		return
 
 # Formulates the parameters into a valid Widipedia API
@@ -45,7 +77,8 @@ def query_URL(url):
 		print "Error reading from URL ", url
 	return the_page
 	
-# Gets the details about the reviewer from the argument HTML <td>
+# Gets the details about the reviewer from the argument HTML <td>. These details are from the main
+# star reviewer page. See setReviewDetails() for the data about reviews.
 # param: tds - table data tags for each reviewer.
 # param: reviewer - Star object for deets to be filled in.
 # return:
@@ -53,20 +86,47 @@ def setReviewersDetails(tds, reviewer):
 	rId = ""
 	index = 0
 	for td in tds:
-		#print "=>" + td + "<=\n\n\n"
+		print "=>" + td + "<=\n\n\n"
 		tmpArray = td.split('/profile/')
-		if (index == 1):
+		if (index == 2):
+			if (td.find('REAL NAME') > -1): # from the alt attribute.
+				reviewer.add('realname', 1)
+			else:
+				reviewer.add('realname', 0)
+			if (td.find('FAME REVIEWER') > -1): # restricted because #1 HaLL OF FAME not HALL OF FAME
+				reviewer.add('halloffame', 1)
+			else:
+				reviewer.add('halloffame', 0)
+			if (td.find('VINE VOICE') > -1):
+				reviewer.add('vine', 1)
+			else:
+				reviewer.add('vine', 0)
+			if (td.find('TOP 50 REVIEWER') > -1):
+				reviewer.add('topreviewer', 1)
+			else:
+				reviewer.add('topreviewer', 0)
+			if (td.find('EMAIL') > -1):
+				reviewer.add('email', 1)
+			else:
+				reviewer.add('email', 0)
+		elif (index == 1):
 			# if this is defined then we should strip the tags and sift out a name.
 			data = td.split('<div')
 			name = remove_html_tags(data[0])
+			# get rid of the end of the div tag angle bracket
+			name = name[1:].lstrip()
 			reviewer.add('name', name)
 			# find the links for all their reviews in the nearby link.
 			reviewsLink = get_review_link(td)
 			reviewer.add('reviewURL', reviewsLink)
-		if (index == 0):
+		elif (index == 0):
+			# get the reviewer's id
 			rId = tmpArray[1].split('/')[0]
 			rId = rId.split('">')[0]
-			reviewer.add('id', rId) # should contain the users profile id.
+			reviewer.add('userid', rId) # should contain the users profile id.
+			# the profile URL is also in this <td>
+			profileURL = 'http://www.amazon.com/gp/pdp/profile/'+rId
+			reviewer.add('profileurl', profileURL)
 		index += 1
 	return
 
@@ -91,11 +151,13 @@ def getStarReviewers(page):
 	print str(len(reviewers_HTML)) + " reviewers listed on this page."
 	# now we have the page split roughly into reviewers stats let's get deets for each.
 	reviewers = []
+	index = 0
 	for reviewer_HTML in reviewers_HTML:
 		# Amazon stores their reviewers in set of tables. Split upt the table data.
 		myReviewersTags = reviewer_HTML.split('<td') # split on td for each record.
 		myReviewersTags.pop(0) # remove the first which doesn't contain any useful data.
-		reviewer = Star()
+		reviewer = Star(index)
+		index += 1
 		setReviewersDetails(myReviewersTags, reviewer)
 		reviewers.append(reviewer)
 		if (DEBUG):
@@ -103,11 +165,6 @@ def getStarReviewers(page):
 	return reviewers # TODO return object array.
 	
 def write_ss_headings(ws):
-	headings = ['numberid', 'name', 'userid', 'profileurl', 'realname', 'vine', 'topreviewer', 'email', 'halloffame',
-		'2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', 'votes', 
-		'helpful', 'ratio', 'location', 'tags', 'info', 'firstrev', 'totalrev', 'reviewstar', 'reviewtitle'
-		'reviewdate', 'reviewyear', 'dayssincelast', 'dayssincefirst', 'votes', 'helpful', 'content', 'characters',
-		'product', 'producturl', 'category1', 'category2', 'category3', 'productfirst', 'daysfirst', 'avreview']
 	fnt = Font()
 	fnt.name = 'Arial'
 	fnt.bold = True
@@ -117,10 +174,10 @@ def write_ss_headings(ws):
 	style.font = fnt
 	style.borders = borders
 	i = 0
-	for heading in headings:
+	s = Star(0)
+	for heading in s.getKeys():
 		ws.write(0, i, heading, style)
 		i += 1
-
 
 DEBUG = False
 
@@ -128,7 +185,6 @@ DEBUG = False
 if __name__ == "__main__":
 	import doctest
 	doctest.testmod()
-	index = 0; # top reviewer get 0, next 1 etc.
 	page = query_URL('http://www.amazon.com/review/hall-of-fame')
 	star_reviewers = getStarReviewers(page)
 	# open a spreadsheet
@@ -136,9 +192,11 @@ if __name__ == "__main__":
 	style = XFStyle()
 	wsheet = spreadsheet.add_sheet("Amazon Star Reviewers")
 	write_ss_headings(wsheet)
+	index = 1; # top reviewer get 0, next 1 etc.
 	for star in star_reviewers:
 		if (DEBUG):
 			print star.toStr()
 		else:
-			spreadsheet.save('wiki_data.xls')
+			star.writeSS(wsheet, index)
+		index += 1
 	spreadsheet.save('Amazon.xls')
