@@ -26,6 +26,12 @@ class Star:
 	def getKeys(self):
 		return self.headings
 		
+	def getProfileURL(self):
+		try:
+			return self.att['profileurl']
+		except KeyError:
+			return None
+		
 	def toStr(self):
 		if (DEBUG):
 			for key in self.att.keys():
@@ -65,11 +71,11 @@ def query_URL(url):
 	# we do this to initialize the return page so if the query fails because 
 	# of URL errors, it can continue to the next article.
 	the_page = ""
-	if (DEBUG): # add this because network is unreliable with kids watching Netflix.
-		f = open('return_page.html')
-		the_page = f.read()
-		f.close()
-		return the_page
+	#if (DEBUG): # add this because network is unreliable with kids watching Netflix.
+	#	f = open('return_page.html')
+	#	the_page = f.read()
+	#	f.close()
+	#	return the_page
 	try:
 		response = urllib2.urlopen(url)
 		the_page = response.read()
@@ -129,6 +135,35 @@ def setReviewersDetails(tds, reviewer):
 			reviewer.add('profileurl', profileURL)
 		index += 1
 	return
+	
+# This function fires to collect the information from the profile pages
+def setReviewersProfile(reviewer):
+	url = reviewer.getProfileURL()
+	if (url == None):
+		print 'reviewers profile URL could not be found.';
+		return
+	# now get the years they have been reviewing; potentially 2000 - 2012 for Kristen's study anyway
+	data = query_URL(url)
+	years = data.split('<div class="hallofFameYears">')
+	if (len(years) > 1):
+		yearString = years[1].split('</div>')[0]
+		years = yearString.split()
+		for year in years: # like: Hall of Fame Reviewer - 2000 2001 2003 2004 2005 2006 2007 2008 2009 2010 2011
+			if year[0].isdigit():
+				reviewer.add(year, year)
+	# now get the helpful votes:
+	votesRaw = data.split('<span class="label">Helpful votes received on reviews:</span>')
+	if (len(votesRaw) > 1):
+		voteString = votesRaw[1].split('</span>')[0]
+		voteString = remove_html_tags(voteString)
+		voteString = voteString.replace("(", " ").replace(")", " ").replace("of", " ")
+		print voteString + "++++++++++++++++",
+		votes = voteString.split()
+		print len(votes)
+		reviewer.add('votes', votes[2])
+		reviewer.add('helpful', votes[1])
+		reviewer.add('ratio', votes[0])
+		
 
 def get_review_link(data):
 	hrefs = data.split('<a href="')
@@ -159,6 +194,7 @@ def getStarReviewers(page):
 		reviewer = Star(index)
 		index += 1
 		setReviewersDetails(myReviewersTags, reviewer)
+		setReviewersProfile(reviewer)
 		reviewers.append(reviewer)
 		if (DEBUG):
 			break
@@ -179,7 +215,7 @@ def write_ss_headings(ws):
 		ws.write(0, i, heading, style)
 		i += 1
 
-DEBUG = False
+DEBUG = True
 
 # The whole thing starts here.
 if __name__ == "__main__":
@@ -196,7 +232,6 @@ if __name__ == "__main__":
 	for star in star_reviewers:
 		if (DEBUG):
 			print star.toStr()
-		else:
-			star.writeSS(wsheet, index)
+		star.writeSS(wsheet, index)
 		index += 1
 	spreadsheet.save('Amazon.xls')
