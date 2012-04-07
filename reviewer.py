@@ -7,6 +7,7 @@ from xlwt import *
 #from xlrd import open_workbook, cellname, xldate_as_tuple
 #from datetime import datetime, date, time
 #import json
+import product
 
 
 class Star:
@@ -191,8 +192,9 @@ def setReviewersProfile(reviewer):
 			if line == 'Interests' or line.startswith('Frequent'):
 				break
 			retString = retString + line
-		print retString + "++++++++++++++++"
+		#print retString + "++++++++++++++++"
 		reviewer.add('info', retString)
+
 # returns the member's reviews page from the main Star Reviewer's page.
 def get_review_link(data):
 	hrefs = data.split('<a href="')
