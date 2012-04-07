@@ -150,21 +150,50 @@ def setReviewersProfile(reviewer):
 		years = yearString.split()
 		for year in years: # like: Hall of Fame Reviewer - 2000 2001 2003 2004 2005 2006 2007 2008 2009 2010 2011
 			if year[0].isdigit():
-				reviewer.add(year, year)
+				reviewer.add(year, 1)
 	# now get the helpful votes:
 	votesRaw = data.split('<span class="label">Helpful votes received on reviews:</span>')
 	if (len(votesRaw) > 1):
 		voteString = votesRaw[1].split('</span>')[0]
 		voteString = remove_html_tags(voteString)
 		voteString = voteString.replace("(", " ").replace(")", " ").replace("of", " ")
-		print voteString + "++++++++++++++++",
+		#print voteString + "++++++++++++++++",
 		votes = voteString.split()
-		print len(votes)
+		#print len(votes)
 		reviewer.add('votes', votes[2])
 		reviewer.add('helpful', votes[1])
 		reviewer.add('ratio', votes[0])
-		
-
+	locationRaw = data.split('<b>Location:</b>')
+	if (len(locationRaw) > 1):
+		locationString = locationRaw[1].split('</div>')[0]
+		reviewer.add('location', locationString)
+	tagsRaw = data.split('Frequently Used Tags')
+	if (len(tagsRaw) > 1):
+		tagsString = tagsRaw[1].split('</div>')[0]
+		tagsString = remove_html_tags(tagsString)
+		tags = tagsString.splitlines()
+		authorTags = []
+		for tag in tags:
+			tag = tag.lstrip()
+			tag = tag.rstrip()
+			if (tag != ""):
+				authorTags.append(tag)
+		tagsString = ', '.join(authorTags)
+		#print tagsString + "++++++++++++++++"
+		reviewer.add('tags', tagsString)
+	infoRaw = data.split('In My Own Words:')
+	if (len(infoRaw) > 1):
+		infoString = infoRaw[1].split('<a href=')[0]
+		infoString = remove_html_tags(infoString).splitlines()
+		retString = ""
+		for line in infoString:
+			line = line.lstrip()
+			if line == 'Interests' or line.startswith('Frequent'):
+				break
+			retString = retString + line
+		print retString + "++++++++++++++++"
+		reviewer.add('info', retString)
+# returns the member's reviews page from the main Star Reviewer's page.
 def get_review_link(data):
 	hrefs = data.split('<a href="')
 	for href in hrefs:
@@ -187,6 +216,7 @@ def getStarReviewers(page):
 	# now we have the page split roughly into reviewers stats let's get deets for each.
 	reviewers = []
 	index = 0
+	i = 0
 	for reviewer_HTML in reviewers_HTML:
 		# Amazon stores their reviewers in set of tables. Split upt the table data.
 		myReviewersTags = reviewer_HTML.split('<td') # split on td for each record.
@@ -196,8 +226,9 @@ def getStarReviewers(page):
 		setReviewersDetails(myReviewersTags, reviewer)
 		setReviewersProfile(reviewer)
 		reviewers.append(reviewer)
-		if (DEBUG):
+		if (DEBUG and i == 4):
 			break
+		i += 1
 	return reviewers # TODO return object array.
 	
 def write_ss_headings(ws):
