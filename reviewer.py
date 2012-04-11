@@ -17,9 +17,9 @@ class Star:
 		self.att = {'numberid': index}
 		self.headings = ['numberid', 'name', 'userid', 'profileurl', 'realname', 'vine', 'topreviewer', 'email', 'halloffame',
 		'2000', '2001', '2002', '2003', '2004', '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', 'votes', 
-		'helpful', 'ratio', 'location', 'tags', 'info', 'firstrev', 'totalrev', 'reviewstar', 'reviewtitle'
-		'reviewdate', 'reviewyear', 'dayssincelast', 'dayssincefirst', 'votes', 'helpful', 'content', 'characters',
-		'product', 'producturl', 'category1', 'category2', 'category3', 'productfirst', 'daysfirst', 'avreview']
+		'helpful', 'ratio', 'location', 'tags', 'info']
+		for year in range(2000, 2013):
+			self.att[str(year)] = 0 # zero all the years to start.
 		
 	def add(self, name, value):
 		self.att[name] = value
@@ -62,6 +62,20 @@ class Star:
 		#ws.write(row, 2, changes, style) # this for standard text to a cell
 		#ws.write(row, 2, Formula('HYPERLINK("' + changes + '";"' + changes + '")'), style_link)
 		return
+		
+	# This method takes teh URL for the products the reviewer has reviewed and scrapes those pages.
+	# each page will will contain all the products the reviewer has reviewed, one for each line
+	# and the page is named after the reviewer. Since this is expensive to query each page 
+	# we will perform checkpointing so we don't have to redo all the entries if we lose connection.
+	def getMyProductReviewPages(self, spreadsheet, fileName):
+		# make a page for the reviewer with their name
+		try:
+			productSheet = spreadsheet.add_sheet(self.att['name'])
+			product.getProductReviews(self.att['name'], self.att['reviewurl'], productSheet)
+			spreadsheet.save(fileName)
+		except KeyError: # warn the user that either name or reviewurl wasn't found.
+			print "Key error: either the reviewer's name or 'reviewurl' wasn't found in the reviewer's main page."
+			return # we move on to the next one.
 
 # Formulates the parameters into a valid Widipedia API
 # call
@@ -93,7 +107,7 @@ def setReviewersDetails(tds, reviewer):
 	rId = ""
 	index = 0
 	for td in tds:
-		print "=>" + td + "<=\n\n\n"
+		#print "=>" + td + "<=\n\n\n"
 		tmpArray = td.split('/profile/')
 		if (index == 2):
 			if (td.find('REAL NAME') > -1): # from the alt attribute.
@@ -125,7 +139,9 @@ def setReviewersDetails(tds, reviewer):
 			reviewer.add('name', name)
 			# find the links for all their reviews in the nearby link.
 			reviewsLink = get_review_link(td)
-			reviewer.add('reviewURL', reviewsLink)
+			# this is not an official heading so it will not be put into the spreadsheet
+			# but it can be referenced by the reviewer when we want to get the product reviews.
+			reviewer.add('reviewurl', reviewsLink)
 		elif (index == 0):
 			# get the reviewer's id
 			rId = tmpArray[1].split('/')[0]
@@ -135,6 +151,7 @@ def setReviewersDetails(tds, reviewer):
 			profileURL = 'http://www.amazon.com/gp/pdp/profile/'+rId
 			reviewer.add('profileurl', profileURL)
 		index += 1
+	print "scraped reviewer page '" + reviewer.att['name'] + "'"
 	return
 	
 # This function fires to collect the information from the profile pages
@@ -217,14 +234,14 @@ def getStarReviewers(page):
 	print str(len(reviewers_HTML)) + " reviewers listed on this page."
 	# now we have the page split roughly into reviewers stats let's get deets for each.
 	reviewers = []
-	index = 0
-	i = 0
+	reviewNumber = 1
+	i = 0 # for debugging exit early.
 	for reviewer_HTML in reviewers_HTML:
-		# Amazon stores their reviewers in set of tables. Split upt the table data.
+		# Amazon stores their reviewers in set of tables. Split up the table data.
 		myReviewersTags = reviewer_HTML.split('<td') # split on td for each record.
 		myReviewersTags.pop(0) # remove the first which doesn't contain any useful data.
-		reviewer = Star(index)
-		index += 1
+		reviewer = Star(reviewNumber)
+		reviewNumber += 1
 		setReviewersDetails(myReviewersTags, reviewer)
 		setReviewersProfile(reviewer)
 		reviewers.append(reviewer)
@@ -261,10 +278,13 @@ if __name__ == "__main__":
 	style = XFStyle()
 	wsheet = spreadsheet.add_sheet("Amazon Star Reviewers")
 	write_ss_headings(wsheet)
-	index = 1; # top reviewer get 0, next 1 etc.
+	index = 1;  #Row 1; row 0 is the title.
 	for star in star_reviewers:
 		if (DEBUG):
 			print star.toStr()
 		star.writeSS(wsheet, index)
 		index += 1
 	spreadsheet.save('Amazon.xls')
+	for star in star_reviewers:
+		star.getMyProductReviewPages(spreadsheet, 'Amazon.xls')
+		spreadsheet.save('Amazon.xls')
