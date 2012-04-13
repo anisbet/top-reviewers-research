@@ -19,6 +19,8 @@ class Product:
 			#  compute (today - reviewdate), compute (today - firstrev)
 			'dayssincelast', 'dayssincefirst', #computed from date of today - reviewdate, today - firstrev
 			'category1', 'category2', 'category3'] #community review of product
+		self.att['votes'] = 0
+		self.att['helpful'] = 0
 	
 	def getHeadings(self):
 		return self.productHeadings
@@ -112,6 +114,14 @@ def  getReviewerPageProductData(data):
 	stars = data[starsPos -3: starsPos]
 	#print stars + "<<<<<<<<<<"
 	product.add('reviewstar', stars)
+	# get the product url
+	prodUrlPos = data.find('This review')
+	start = data.find('href="', prodUrlPos) + len('href="')
+	end   = data.find('"', start)
+	prodUrl      = data[start:end]
+	print prodUrl + "<<<<<<<<<< prodUrl"
+	product.add('producturl', prodUrl)
+	# remove all the html for easier text identification.
 	text = reviewer.remove_html_tags(data)
 	#print text + "<<<<<<<<<<"
 	textStrings = text.split('\n')
@@ -121,14 +131,18 @@ def  getReviewerPageProductData(data):
 		textString = textString.strip()
 		if (textString == ""):
 			continue;
-		print ">>>>>>>>>" + textString + "<<<<<<<<<<"
+		#print ">>>>>>>>>" + textString + "<<<<<<<<<<"
 		if (reHelp.match(textString)):
 			votesHelp = textString.split(' people')[0]
 			votes = votesHelp.split(' of ')[1]
 			helpful = votesHelp.split(' of ')[0]
 			product.add('votes', votes)
 			product.add('helpful', helpful)
-			print votes + " : " + helpful + " votes : helpful <<<<<<<<<<"
+			#print votes + " : " + helpful + " votes : helpful <<<<<<<<<<"
+		if (textString.find('This review') > -1):
+			title = textString.split(':')[1]
+			product.add('product', title.lstrip())
+			#print title + "<<<<<<<<<< title"
 		if (len(textString.split(', ')) == 3):
 			title = textString.split(', ')[0]
 			date  = textString.split(', ')[1]
@@ -136,11 +150,11 @@ def  getReviewerPageProductData(data):
 			product.add('reviewtitle', title)
 			product.add('reviewdate', date + ", " + year)
 			product.add('reviewyear', year)
-			print title + " : " + date + ", " + year + "<<<<<<<<<<"
+			#print title + " : " + date + ", " + year + "<<<<<<<<<<"
 		elif (len(textString) > 120): # comments are long.
 			product.add('content', textString)
 			product.add('characters', len(textString))
-			print str(len(textString)) + " characters long.<<<<<<<<<<"
+			#print str(len(textString)) + " characters long.<<<<<<<<<<"
 	return product
 
 	
