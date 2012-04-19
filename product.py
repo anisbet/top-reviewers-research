@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 # gets information from individual product pages. Each product should envoke a save on the spread sheet.
 
 import reviewer
@@ -19,14 +20,21 @@ class Product:
 			#  compute (today - reviewdate), compute (today - firstrev)
 			'dayssincelast', 'dayssincefirst', #computed from date of today - reviewdate, today - firstrev
 			'category1', 'category2', 'category3'] #community review of product
-		self.att['votes'] = 0
-		self.att['helpful'] = 0
+		self.att['votes']    = 0
+		self.att['helpful']  = 0
+		self.att['avreview'] = 0
 	
 	def getHeadings(self):
 		return self.productHeadings
 		
 	def add(self, name, value):
 		self.att[name] = value
+		
+	def get(self, which):
+		try:
+			return self.att[which];
+		except KeyError:
+			return None
 		
 	def toStr(self):
 		if (reviewer.DEBUG):
@@ -87,7 +95,7 @@ def getProductReviews(reviewer_name, reviewURL, ssheet):
 	# here we will get the information we can from the Reviewer's product page:
 	allProducts = []
 	for tr in trs:
-		if (tr.find(" out of 5 stars") > -1): # we have a product table record.
+		if (tr.find(" out of 5 stars") > -1): # we have a product table record. Many data points can be got from here.
 			#nextPage = getNextPageURL(page)
 			# TODO add another arg: nextPage to the function below to kick off recursion.
 			allProducts.append(getReviewerPageProductData(tr))
@@ -96,7 +104,7 @@ def getProductReviews(reviewer_name, reviewURL, ssheet):
 	# now get the product data from the Products page.
 	index = 1
 	for product in allProducts:
-	#	getProductPageProductData(product, tr)
+		getProductPageProductData(product)
 		product.writeSS(ssheet, index)
 		index += 1
 	return
@@ -118,7 +126,7 @@ def  getReviewerPageProductData(data):
 	prodUrlPos = data.find('This review')
 	start = data.find('href="', prodUrlPos) + len('href="')
 	end   = data.find('"', start)
-	prodUrl      = data[start:end]
+	prodUrl = data[start:end]
 	print prodUrl + "<<<<<<<<<< prodUrl"
 	product.add('producturl', prodUrl)
 	# remove all the html for easier text identification.
@@ -132,13 +140,16 @@ def  getReviewerPageProductData(data):
 		if (textString == ""):
 			continue;
 		#print ">>>>>>>>>" + textString + "<<<<<<<<<<"
+		textString = encode_utf8(textString)
 		if (reHelp.match(textString)):
 			votesHelp = textString.split(' people')[0]
 			votes = votesHelp.split(' of ')[1]
 			helpful = votesHelp.split(' of ')[0]
-			product.add('votes', votes)
-			product.add('helpful', helpful)
-			#print votes + " : " + helpful + " votes : helpful <<<<<<<<<<"
+			if (votes != ""):
+				product.add('votes', votes)
+			if (helpful != ""):
+				product.add('helpful', helpful)
+			print votes + " : " + helpful + " votes : helpful <<<<<<<<<<"
 		if (textString.find('This review') > -1):
 			title = textString.split(':')[1]
 			product.add('product', title.lstrip())
@@ -156,10 +167,39 @@ def  getReviewerPageProductData(data):
 			product.add('characters', len(textString))
 			#print str(len(textString)) + " characters long.<<<<<<<<<<"
 	return product
+	
+def encode_utf8(text):
+	st = ""
+	for ch in text:
+		if (ord(ch) > 128):
+			continue
+		st += ch
+	return st
 
 	
-#def getProductPageProductData(product, data):
-#	return
+def getProductPageProductData(product):
+	# if we failed to get product URL return
+	url = product.get('producturl')
+	if (url == None):
+		return
+	data = reviewer.query_URL(url)
+	starsPos = data.find(' out of 5 stars')
+	stars = data[starsPos -3: starsPos]
+	print stars + "<========="
+	product.add('avreview', stars)
+	# product introduction date seems to follow (at least) these two types:
+	#dateStart = data.find('first available')
+	#if (dateStart > -1):
+	#	dateEnd = data.index('\n', dateStart)
+	#	introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
+	#	print introDate + "<========="
+	#else:
+	#	dateStart = data.find('Publication Date')
+	#	if (dateStart > -1):
+	#		dateEnd = data.index('\n', dateStart)
+	#		introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
+	#		print introDate + "<========="
+	return
 
 if __name__ == "__main__":
 	import doctest

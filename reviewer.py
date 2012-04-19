@@ -9,6 +9,7 @@ from xlwt import *
 #import json
 import product
 
+SPREADSHEET_NAME = 'Amazon.xls'
 
 class Star:
 	# 48 potential fields.
@@ -73,6 +74,8 @@ class Star:
 			productSheet = spreadsheet.add_sheet(self.att['name'])
 			product.getProductReviews(self.att['name'], self.att['reviewurl'], productSheet)
 			spreadsheet.save(fileName)
+		except UnicodeDecodeError:
+			print "Error encoding values within\n'" + self.att['name'] + "' in reviewURL:\n" +  self.att['reviewurl']
 		except KeyError: # warn the user that either name or reviewurl wasn't found.
 			print "Key error: either the reviewer's name or 'reviewurl' wasn't found in the reviewer's main page."
 			return # we move on to the next one.
@@ -284,7 +287,7 @@ if __name__ == "__main__":
 			print star.toStr()
 		star.writeSS(wsheet, index)
 		index += 1
-	spreadsheet.save('Amazon.xls')
+	spreadsheet.save(SPREADSHEET_NAME)
 	for star in star_reviewers:
-		star.getMyProductReviewPages(spreadsheet, 'Amazon.xls')
-		spreadsheet.save('Amazon.xls')
+		star.getMyProductReviewPages(spreadsheet, SPREADSHEET_NAME)
+		spreadsheet.save(SPREADSHEET_NAME)
