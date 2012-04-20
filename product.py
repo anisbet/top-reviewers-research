@@ -23,6 +23,9 @@ class Product:
 		self.att['votes']    = 0
 		self.att['helpful']  = 0
 		self.att['avreview'] = 0
+		self.att['category1'] = "N/A"
+		self.att['category2'] = "N/A"
+		self.att['category3'] = "N/A"
 	
 	def getHeadings(self):
 		return self.productHeadings
@@ -154,6 +157,16 @@ def  getReviewerPageProductData(data):
 			title = textString.split(':')[1]
 			product.add('product', title.lstrip())
 			#print title + "<<<<<<<<<< title"
+			# get the parens 'cause they include the catagory:
+			rawCatagory = title.split('(')
+			catIndex = 1
+			rawCatagory.reverse()
+			rawCatagory = rawCatagory[:-1]
+			#print str(rawCatagory) + "<<<<<<<<+< catagory"
+			for catagory in rawCatagory:
+				catagory = catagory.replace(')', '')
+				product.add('category'+str(catIndex), catagory.rstrip()) # trim closing paren
+				catIndex += 1
 		if (len(textString.split(', ')) == 3):
 			title = textString.split(', ')[0]
 			date  = textString.split(', ')[1]
@@ -162,12 +175,14 @@ def  getReviewerPageProductData(data):
 			product.add('reviewdate', date + ", " + year)
 			product.add('reviewyear', year)
 			#print title + " : " + date + ", " + year + "<<<<<<<<<<"
-		elif (len(textString) > 120): # comments are long.
+		elif (len(textString) > 120): # comments are long. gawd is that lame
 			product.add('content', textString)
 			product.add('characters', len(textString))
 			#print str(len(textString)) + " characters long.<<<<<<<<<<"
 	return product
 	
+# Why the hell am I doing this??
+# Oh, yeah duffus had to put trademarks in the content!
 def encode_utf8(text):
 	st = ""
 	for ch in text:
@@ -177,6 +192,7 @@ def encode_utf8(text):
 	return st
 
 	
+# Goes to the product page and gets the canonical data about the product.
 def getProductPageProductData(product):
 	# if we failed to get product URL return
 	url = product.get('producturl')
@@ -188,17 +204,19 @@ def getProductPageProductData(product):
 	print stars + "<========="
 	product.add('avreview', stars)
 	# product introduction date seems to follow (at least) these two types:
-	#dateStart = data.find('first available')
-	#if (dateStart > -1):
-	#	dateEnd = data.index('\n', dateStart)
-	#	introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
-	#	print introDate + "<========="
-	#else:
-	#	dateStart = data.find('Publication Date')
-	#	if (dateStart > -1):
-	#		dateEnd = data.index('\n', dateStart)
-	#		introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
-	#		print introDate + "<========="
+	dateStart = data.find('first available')
+	if (dateStart > -1):
+		dateEnd = data.index('\n', dateStart)
+		introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
+		print introDate + "<========="
+		product.add('productfirst', introDate)
+	else:
+		dateStart = data.find('Publication Date')
+		if (dateStart > -1):
+			dateEnd = data.index('\n', dateStart)
+			introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
+			print introDate + "<========="
+			product.add('productfirst', introDate)
 	return
 
 if __name__ == "__main__":
