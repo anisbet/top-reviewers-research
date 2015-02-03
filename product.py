@@ -45,7 +45,7 @@ class Product:
 				print key + " = " + str(self.att[key])
 		else:
 			for key in self.att.keys():
-				print key + " = " + self.att[key]
+				print key + " = " + str(self.att[key])
 
 	def writeSS(self, sheet, row):
 		style = XFStyle()
@@ -89,27 +89,42 @@ def writeProductHeadings(worksheet):
 # saving as we go.
 # param reviewer 
 # param sheet for reviews.
-def getProductReviews(reviewer_name, reviewURL, ssheet):
+def getProductReviews(reviewer_name, reviewer_id, reviewURL, ssheet):
 	writeProductHeadings(ssheet)
-	print "review URL: " + reviewURL
-	page = reviewer.query_URL(reviewURL)
-	trs = page.split('<tr>')
-	print "there are " + str(len(trs)) + " trs in the page"
 	# here we will get the information we can from the Reviewer's product page:
 	allProducts = []
-	for tr in trs:
-		if (tr.find(" out of 5 stars") > -1): # we have a product table record. Many data points can be got from here.
-			#nextPage = getNextPageURL(page)
-			# TODO add another arg: nextPage to the function below to kick off recursion.
-			allProducts.append(getReviewerPageProductData(tr))
-	print str(len(allProducts)) + " products found."
+	parsePage(reviewURL, ssheet, allProducts)
 	# to get here we have scraped all the data from the reviewer's product page
-	# now get the product data from the Products page.
+	# now get the product data from the Products pages.
+	href = 'http://www.amazon.com/gp/cdp/member-reviews/' + reviewer_id + "?ie=UTF8&amp;display=public&amp;sort_by=MostRecentReview&amp;page="
+	#href = '/gp/cdp/member-reviews/' + reviewer_id + "?ie=UTF8&amp;display=public&amp;page="
+	# TODO fix Me This doesn't descend as expected. Cookies enabled too
+	for nextPage in range(2, 3):
+		print href + str(nextPage) + "<< checking..."
+		parsePage(href + str(nextPage), ssheet, allProducts, nextPage)
 	index = 1
+	print str(len(allProducts)) + " products found."
 	for product in allProducts:
 		getProductPageProductData(product)
 		product.writeSS(ssheet, index)
 		index += 1
+	return
+	
+# Call recursively to get the other sheets.
+def parsePage(reviewURL, ssheet, allProducts, fromPage=1):
+	if (reviewURL == None):
+		return
+	print "review URL: " + reviewURL
+	if (fromPage > 1):
+		refererURL = reviewURL + str(fromPage -1)
+		page = reviewer.query_URL(reviewURL, refererURL)
+	else:
+		page = reviewer.query_URL(reviewURL)
+	trs = page.split('<tr>')
+	print "there are " + str(len(trs)) + " trs in the page"
+	for tr in trs:
+		if (tr.find(" out of 5 stars") > -1): # we have a product table record. Many data points can be gotten from here.
+			allProducts.append(getReviewerPageProductData(tr))
 	return
 
 # Gets what data we can from the reviewers product page
@@ -187,6 +202,7 @@ def encode_utf8(text):
 	st = ""
 	for ch in text:
 		if (ord(ch) > 128):
+			st += ' '
 			continue
 		st += ch
 	return st
@@ -201,13 +217,14 @@ def getProductPageProductData(product):
 	data = reviewer.query_URL(url)
 	starsPos = data.find(' out of 5 stars')
 	stars = data[starsPos -3: starsPos]
-	print stars + "<========="
+	#print stars + "<========="
 	product.add('avreview', stars)
 	# product introduction date seems to follow (at least) these two types:
 	dateStart = data.find('first available')
 	if (dateStart > -1):
 		dateEnd = data.index('\n', dateStart)
 		introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
+		introDate = introDate.split(': ')[1]
 		print introDate + "<========="
 		product.add('productfirst', introDate)
 	else:
@@ -215,8 +232,14 @@ def getProductPageProductData(product):
 		if (dateStart > -1):
 			dateEnd = data.index('\n', dateStart)
 			introDate = reviewer.remove_html_tags(data[dateStart:dateEnd])
-			print introDate + "<========="
+			introDate = introDate.split(': ')[1].split(' |')[0]
+			#print introDate + "<========="
 			product.add('productfirst', introDate)
+	totalReviewsPos = data.find('customer reviews</a>)')
+	if (totalReviewsPos > -1):
+		totalReviews = reviewer.remove_html_tags(data[totalReviewsPos -10: totalReviewsPos]).split('>')[1]
+		print totalReviews + "<========= Total reviews"
+		product.add('totalrev', totalReviews)
 	return
 
 if __name__ == "__main__":
